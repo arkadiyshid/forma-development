@@ -31,9 +31,18 @@ OUTPUT_FILE = os.path.join(
 DEFAULT_WAIT = 15
 RESULT_READY_WAIT = 10
 SHORT_PAUSE_RANGE = (0.15, 0.35)
-TYPE_PAUSE_RANGE = (0.4, 0.8)
+TYPE_PAUSE_RANGE = (0.25, 0.55)
+TYPE_CHAR_RANGE = (0.03, 0.08)
+MICRO_THINK_RANGE = (0.25, 0.6)
+CLICK_PAUSE_RANGE = (0.2, 0.5)
+PAGE_THINK_RANGE = (0.5, 1.4)
+MIN_REQUEST_INTERVAL = (1.2, 2.4)
+LONG_BREAK_EVERY = (6, 12)
+LONG_BREAK_RANGE = (6.0, 14.0)
+ANTIBOT_COOLDOWN_RANGE = (20.0, 45.0)
 RETRY_DELAY_RANGE = (3.0, 6.0)
 MAX_RETRIES = 2
+PACE_MAX = 3.0
 
 service = Service(executable_path=CHROMEDRIVER_PATH)
 options = webdriver.ChromeOptions()
@@ -60,6 +69,51 @@ def retry_pause():
     time.sleep(random.uniform(*RETRY_DELAY_RANGE))
 
 
+STATE = {
+    "pace": 1.0,
+    "antibot_hits": 0,
+    "last_request_ts": 0.0,
+    "actions": 0,
+}
+
+
+def _paced_range(base_range):
+    return (base_range[0] * STATE["pace"], base_range[1] * STATE["pace"])
+
+
+def human_pause(base_range):
+    time.sleep(random.uniform(*_paced_range(base_range)))
+
+
+def maybe_long_break():
+    if STATE["actions"] == 0:
+        return
+    if STATE["actions"] % random.randint(*LONG_BREAK_EVERY) == 0:
+        human_pause(LONG_BREAK_RANGE)
+
+
+def ensure_request_spacing():
+    now = time.time()
+    min_interval = random.uniform(*_paced_range(MIN_REQUEST_INTERVAL))
+    wait_for = min_interval - (now - STATE["last_request_ts"])
+    if wait_for > 0:
+        time.sleep(wait_for)
+    STATE["last_request_ts"] = time.time()
+
+
+def bump_pace():
+    STATE["pace"] = min(PACE_MAX, STATE["pace"] * 1.4)
+
+
+def human_type(element, text):
+    for ch in text:
+        element.send_keys(ch)
+        time.sleep(random.uniform(*_paced_range(TYPE_CHAR_RANGE)))
+        if random.random() < 0.08:
+            time.sleep(random.uniform(*_paced_range(MICRO_THINK_RANGE)))
+    typing_pause()
+
+
 def click_button_by_text(text, timeout=DEFAULT_WAIT):
     button = WebDriverWait(driver, timeout).until(
         EC.element_to_be_clickable(
@@ -70,11 +124,13 @@ def click_button_by_text(text, timeout=DEFAULT_WAIT):
         )
     )
     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
-    short_pause()
+    human_pause(CLICK_PAUSE_RANGE)
     try:
         button.click()
     except Exception:
         driver.execute_script("arguments[0].click();", button)
+    human_pause(SHORT_PAUSE_RANGE)
+    STATE["actions"] += 1
     return button
 
 
@@ -146,6 +202,8 @@ def handle_antibot_error():
             EC.visibility_of_element_located((By.CLASS_NAME, "rros-ui-lib-error-message"))
         )
         print("[INFO] Найдено окно ошибки антибота — пробуем закрыть и повторить поиск.")
+        STATE["antibot_hits"] += 1
+        bump_pace()
         try:
             cross = None
             try:
@@ -160,6 +218,8 @@ def handle_antibot_error():
             print("[INFO] Крестик кликнут!")
         except Exception as e:
             print("[WARN] Не удалось кликнуть крестик:", e)
+        print("[INFO] Делаю паузу для снятия блокировки.")
+        human_pause(ANTIBOT_COOLDOWN_RANGE)
         return True
     except TimeoutException:
         return False
@@ -167,11 +227,13 @@ def handle_antibot_error():
 
 def open_cadaster_search_form():
     driver.get(URL)
+    human_pause(PAGE_THINK_RANGE)
     click_button_by_text("Начать", timeout=5)
     click_button_by_text("Посмотреть основные сведения о недвижимости")
     click_button_by_text("Квартира")
     click_button_by_text("Кадастровый номер")
     wait_for_cad_input()
+    human_pause(SHORT_PAUSE_RANGE)
 
 
 def ensure_search_form_ready():
@@ -208,15 +270,17 @@ def parse_kadaster(kad_num):
     try:
         cad_input = wait_for_cad_input(timeout=5)
         cad_input.clear()
-        cad_input.send_keys(kad_num)
-        typing_pause()
+        human_type(cad_input, kad_num)
         print(f"[STEP] Номер {kad_num} введен, нажимаю 'Продолжить'", flush=True)
+        ensure_request_spacing()
         continue_btn = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable((
                 By.XPATH, '//span[contains(text(), "Продолжить")]/ancestor::button'
             ))
         )
         continue_btn.click()
+        human_pause(SHORT_PAUSE_RANGE)
+        STATE["actions"] += 1
         print(f"[STEP] Клик по 'Продолжить' выполнен для {kad_num}", flush=True)
         result = {}
         fields = [
@@ -246,6 +310,7 @@ def parse_kadaster(kad_num):
             print(f"{k}: {v}")
         print("--- Конец ---\n")
 
+        maybe_long_break()
         return {"kad_num": kad_num, "info": [f"{k}: {v}" for k, v in result.items()]}
     except Exception as e:
         print(f"[ERROR] {kad_num}: {e}", flush=True)
@@ -290,7 +355,7 @@ for index, kad in enumerate(KAD_NUMBERS):
         try:
             print(f"[STEP] Переход к следующему номеру после {kad}", flush=True)
             return_to_search_form()
-            short_pause()
+            human_pause(SHORT_PAUSE_RANGE)
         except Exception:
             print(f"[WARN] Возврат к форме не удался после {kad}, пробую восстановить форму", flush=True)
             ensure_search_form_ready()
