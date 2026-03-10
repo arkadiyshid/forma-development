@@ -1,11 +1,17 @@
 # Игнорировать временные файлы ОС
-*.DS_Store
+.DS_Store
 
 # Игнорировать директорию build/
 build/
+build\
 
 # Игнорировать все файлы .log
 *.log
+
+# ignore environment dir
+venv\
+venv/
+__pycache__/
 
 # Игнорировать все файлы в папке node_modules
 node_modules/
@@ -14,6 +20,7 @@ node_modules/
 *.env
 # Игнорировать все файлы *.env (например, настройки окружения)
 data/
+data\
 # игнорировать файлы cookies
 *.pkl
 venv/
