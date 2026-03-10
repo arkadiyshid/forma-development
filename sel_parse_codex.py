@@ -264,6 +264,8 @@ with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
     f.write(f"Результаты запуска: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     f.write("=" * 40 + "\n")
 
+
+script_start = time.perf_counter()
 # --- ГЛАВНОЙ ЦИКЛ ---
 for index, kad in enumerate(KAD_NUMBERS):
     result = None
@@ -295,4 +297,7 @@ for index, kad in enumerate(KAD_NUMBERS):
 
 print(f"Готово! Данные сохранены в {OUTPUT_FILE}")
 
+elapsed = time.perf_counter() - script_start
+minutes, seconds = divmod(elapsed, 60)
+print(f"Время выполнения: {int(minutes)} мин {seconds:.1f} сек.")
 # driver.quit()  # раскомментируй, если хочешь закрывать браузер
