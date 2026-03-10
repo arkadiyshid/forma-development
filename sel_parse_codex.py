@@ -22,7 +22,11 @@ KAD_NUMBERS = [ # впиши свои данные
 ]
 URL = "https://www.gosuslugi.ru/600359/1/form"
 COOKIES_FILE = "cookies.pkl"
-CHROMEDRIVER_PATH = '/Users/arkadijsidlovskij/Desktop/projects/PKK_FLAT_PARS/chromedriver'
+
+if os.name == "nt": #windows
+    CHROMEDRIVER_PATH =  r"C:\Users\shidlovskiyaf\projects\PKK_FLAT_PARS\chromedriver.exe"
+else: #unix
+    CHROMEDRIVER_PATH = '/Users/arkadijsidlovskij/Desktop/projects/PKK_FLAT_PARS/chromedriver'
 OUTPUT_DIR = "data"
 OUTPUT_FILE = os.path.join(
     OUTPUT_DIR,
