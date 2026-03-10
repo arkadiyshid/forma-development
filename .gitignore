@@ -11,6 +11,7 @@ build\
 # ignore environment dir
 venv\
 venv/
+__pycache__/
 
 # Игнорировать все файлы в папке node_modules
 node_modules/
