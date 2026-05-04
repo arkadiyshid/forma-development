@@ -12,6 +12,7 @@ build\
 venv\
 venv/
 __pycache__/
+ *.xlsx
 
 # Игнорировать все файлы в папке node_modules
 node_modules/
